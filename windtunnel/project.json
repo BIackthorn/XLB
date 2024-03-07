@@ -1,0 +1,604 @@
+{
+    "beamTOParams": {
+        "beamSpacing": 0.0,
+        "convertToBarc": false,
+        "fixedMergeDist": 0.0,
+        "gravity": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": -1.0
+        },
+        "initCrossSectionSize": 0.0,
+        "keepOutOnly": false,
+        "loadMergeDist": 0.0,
+        "maxBeamLength": 0.0,
+        "maxCrossSectionSize": 0.0,
+        "maxDegree": 8,
+        "maxIters": 30,
+        "minBeamLength": 0.0,
+        "minCrossSectionSize": 0.0,
+        "pruneLength": 0.0,
+        "runBarcTO": false,
+        "solverIters": 50
+    },
+    "fluidProj": {
+        "fluidCases": [
+            {
+                "defaultThermalBCType": null,
+                "defaultThermalBCValue": 0.0,
+                "fluidBCs": [
+                    {
+                        "axial": false,
+                        "boundaryID": "Velocity_inlet.stl1701440183",
+                        "faceIndices": [
+                            0,
+                            1,
+                            2,
+                            3,
+                            4,
+                            5,
+                            6,
+                            7,
+                            8,
+                            9,
+                            10,
+                            11
+                        ],
+                        "fluidDef": {
+                            "bcType": "velocity",
+                            "portID": 0,
+                            "velocity": {
+                                "x": -10.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            }
+                        },
+                        "hasThermal": false,
+                        "normalOrientation": false,
+                        "poiseuille": false,
+                        "poiseuilleRadius": 0.0,
+                        "portFilename": "inlet.stl",
+                        "thermalDef": {
+                            "bcType": null,
+                            "portID": 0
+                        }
+                    },
+                    {
+                        "axial": false,
+                        "boundaryID": "Pressure_outlet.stl1701440185",
+                        "faceIndices": [
+                            0,
+                            1,
+                            2,
+                            3,
+                            4,
+                            5,
+                            6,
+                            7,
+                            8,
+                            9,
+                            10,
+                            11
+                        ],
+                        "fluidDef": {
+                            "bcType": "pressure",
+                            "portID": 1,
+                            "pressure": 0.0
+                        },
+                        "hasThermal": false,
+                        "normalOrientation": false,
+                        "poiseuille": false,
+                        "poiseuilleRadius": 0.0,
+                        "portFilename": "outlet.stl",
+                        "thermalDef": {
+                            "bcType": null,
+                            "portID": 0
+                        }
+                    }
+                ],
+                "fluidMaterialId": "Fluid",
+                "thermalBCs": []
+            }
+        ],
+        "fluidMaterials": {
+            "Fluid": {
+                "density": 1.2,
+                "diffusivity": 1.0,
+                "viscosity": 1.5e-05
+            }
+        },
+        "portPaths": [],
+        "poseidonSettings": {
+            "computeArch": "gpu",
+            "computeIDs": [],
+            "computeResources": 0,
+            "debug": false,
+            "doublePrecision": false,
+            "maxBwdIterations": 0,
+            "maxFwdIterations": 1500,
+            "sdfTol": 0.0,
+            "smagorinskyConstant": 0.01,
+            "solutionPrintFreq": 0,
+            "surfaceMeshName": "Body.stl",
+            "thermal": false,
+            "turbulentFlow": true,
+            "useMeshWall": true,
+            "voxelSize": 0.085,
+            "warmstart": false,
+            "writeFlowLines": false,
+            "writePressure": true,
+            "writeSurfaceMeshes": false,
+            "writeTemperature": false,
+            "writeVelocity": true
+        }
+    },
+    "keepIns": [
+        "inlet.stl",
+        "outlet.stl"
+    ],
+    "keepOuts": [
+        "Body.stl",
+        "LF.stl",
+        "LR.stl",
+        "RF.stl",
+        "RR.stl"
+    ],
+    "lsTOParams": {
+        "additiveParams": {
+            "buildDir": {
+                "x": 0.0,
+                "y": 1.0,
+                "z": 0.0
+            },
+            "groundPoint": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "overhangAngle": 45.0
+        },
+        "angleSnappingParams": {
+            "angleSnapIgnoreThresholdInDegrees": 18.0,
+            "angleSnapInDegrees": 45.0,
+            "angleSnapMaxIters": 50,
+            "angleSnapStepSize": 0.01,
+            "doAngleSnap": false,
+            "objType": 1,
+            "snapToKeepInNormals": true
+        },
+        "bandVoxels": 3,
+        "bulkRemovalFraction": 0.3,
+        "bulkRemovalIntervals": 0,
+        "constraints": [],
+        "crossSectionContinuityParams": {
+            "enabled": false,
+            "ignoreDotProductAbove": -0.75,
+            "maxIters": 1000,
+            "stepSize": 0.1
+        },
+        "enableBacktracking": false,
+        "enableLineSearch": false,
+        "fullLineSearch": false,
+        "holeCount": 0,
+        "holeRadius": 0.0,
+        "maxThickness": 1.7976931348623157e+308,
+        "maxVolumeReduction": 0.35,
+        "minThickness": 0.0,
+        "objectiveTolerance": 1.02,
+        "objectives": [
+            {
+                "boundaryIDs": [],
+                "name": "Pressure Drop",
+                "objectiveType": "pressureDrop"
+            }
+        ],
+        "outputName": "project",
+        "outputParams": {
+            "outputSlices": [
+                {
+                    "field": "velocityMag",
+                    "height": 2000,
+                    "heightVec": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.001
+                    },
+                    "loadCase": 0,
+                    "origin": [
+                        {
+                            "x": 3.0,
+                            "y": 1.0,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": 0.95,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": 0.9,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": 0.85,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": 0.8,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": 0.75,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": 0.7,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": 0.65,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": 0.6,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": 0.55,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": 0.5,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": 0.45,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": 0.4,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": 0.35,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": 0.3,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": 0.25,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": 0.2,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": 0.15,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": 0.1,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": 0.05,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": 0.0,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": -0.05,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": -0.1,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": -0.15,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": -0.2,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": -0.25,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": -0.3,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": -0.35,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": -0.4,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": -0.45,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": -0.5,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": -0.55,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": -0.6,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": -0.65,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": -0.7,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": -0.75,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": -0.8,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": -0.85,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": -0.9,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": -0.95,
+                            "z": 0.0
+                        },
+                        {
+                            "x": 3.0,
+                            "y": -1.0,
+                            "z": 0.0
+                        }
+                    ],
+                    "width": 8000,
+                    "widthVec": {
+                        "x": -0.001,
+                        "y": 0.0,
+                        "z": 0.0
+                    }
+                }
+            ],
+            "writeBiases": false,
+            "writeCADJSON": false,
+            "writeConstraints": false,
+            "writeFields": false,
+            "writeMeshes": false,
+            "writeObjectives": false,
+            "writeThickness": false
+        },
+        "posthocStepIters": 0,
+        "posthocTotalIters": 0,
+        "relaxIters": 0,
+        "scale": 1.0,
+        "speedSmoothingIters": 0,
+        "stepIters": 0,
+        "stepRate": 1.0,
+        "steps": 0,
+        "stopOnConvergence": false,
+        "symmetryPlanes": [],
+        "totalIters": 0,
+        "voxSize": 0.08
+    },
+    "meshTransforms": {
+        "keepIns": [
+            [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ]
+        ],
+        "keepOuts": [
+            [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ]
+        ],
+        "seedGeom": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+        ]
+    },
+    "outputPath": "WindTunnel_",
+    "physicsFluid": true,
+    "physicsStructure": false,
+    "projectName": "WindTunnel_",
+    "seedGeom": "Seed.stl",
+    "solveOnly": true,
+    "upDir": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+    }
+}
