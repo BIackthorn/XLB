@@ -19,6 +19,7 @@ from time import time
 import numpy as np
 import jax.numpy as jnp
 from jax import config
+import json, getopt, sys
 
 from src.utils import *
 from src.models import BGKSim, KBCSim
@@ -34,6 +35,8 @@ from src.boundary_conditions import *
 
 class Car(KBCSim):
     def __init__(self, **kwargs):
+        self.project = kwargs['project']
+        self.prescribed_velocity = kwargs['prescribed_vel']
         super().__init__(**kwargs)
 
     def voxelize_stl(self, stl_filename, length_lbm_unit):
@@ -45,20 +48,31 @@ class Car(KBCSim):
         return mesh_matrix, pitch
 
     def set_boundary_conditions(self):
-        print('Voxelizing mesh...')
+        print('Voxelizing meshes...')
         time_start = time()
-        stl_filename = 'stl-files/DrivAer-Notchback.stl'
-        car_length_lbm_unit = self.nx / 4
-        car_voxelized, pitch = voxelize_stl(stl_filename, car_length_lbm_unit)
-        car_matrix = car_voxelized.matrix
+        proj_path = self.project['projPath']
+        first = True
+        ko_indices = []
+        for ko in self.project['keepOuts']:
+            ko_filename = os.path.join(proj_path, ko)
+            if (first):
+                car_length_lbm_unit = self.nx / 4
+                car_voxelized, pitch = voxelize_stl(ko_filename, car_length_lbm_unit)
+                car_matrix = car_voxelized.matrix
+                ko_indices.append(car_matrix)
+                first = False
+        
         print('Voxelization time for pitch={}: {} seconds'.format(pitch, time() - time_start))
         print("Car matrix shape: ", car_matrix.shape)
 
         self.car_area = np.prod(car_matrix.shape[1:])
-        tx, ty, tz = np.array([nx, ny, nz]) - car_matrix.shape
+        tx, ty, tz = np.array([self.nx, self.ny, self.nz]) - car_matrix.shape
         shift = [tx//4, ty//2, 0]
         car_indices = np.argwhere(car_matrix) + shift
         self.BCs.append(BounceBackHalfway(tuple(car_indices.T), self.gridInfo, self.precisionPolicy))
+        
+        #for k_inds in ko_indices:
+        #    self.BCs.append(BounceBackHalfway(tuple(k_inds.T), self.gridInfo, self.precisionPolicy))
 
         wall = np.concatenate((self.boundingBoxIndices['bottom'], self.boundingBoxIndices['top'],
                                self.boundingBoxIndices['front'], self.boundingBoxIndices['back']))
@@ -77,7 +91,7 @@ class Car(KBCSim):
         rho_inlet = np.ones((inlet.shape[0], 1), dtype=self.precisionPolicy.compute_dtype)
         vel_inlet = np.zeros(inlet.shape, dtype=self.precisionPolicy.compute_dtype)
 
-        vel_inlet[:, 0] = prescribed_vel
+        vel_inlet[:, 0] = self.prescribed_velocity
         self.BCs.append(EquilibriumBC(tuple(inlet.T), self.gridInfo, self.precisionPolicy, rho_inlet, vel_inlet))
         # self.BCs.append(ZouHe(tuple(inlet.T),
         #                                          self.gridInfo,
@@ -97,8 +111,8 @@ class Car(KBCSim):
         boundary_force = np.sum(boundary_force, axis=0)
         drag = np.sqrt(boundary_force[0]**2 + boundary_force[1]**2)     #xy-plane
         lift = boundary_force[2]                                        #z-direction
-        cd = 2. * drag / (prescribed_vel ** 2 * self.car_area)
-        cl = 2. * lift / (prescribed_vel ** 2 * self.car_area)
+        cd = 2. * drag / (self.prescribed_velocity ** 2 * self.car_area)
+        cl = 2. * lift / (self.prescribed_velocity ** 2 * self.car_area)
 
         u_old = np.linalg.norm(u_prev, axis=2)
         u_new = np.linalg.norm(u, axis=2)
@@ -108,33 +122,83 @@ class Car(KBCSim):
         fields = {"rho": rho[..., 0], "u_x": u[..., 0], "u_y": u[..., 1], "u_z": u[..., 2]}
         save_fields_vtk(timestep, fields)
 
-if __name__ == '__main__':
-    precision = 'f32/f32'
+def parseJSON(inputfile):
+    f = open(inputfile)
+    project = json.load(f)
+    proj_path = os.path.dirname(os.path.abspath(inputfile))
+    project['projPath'] = proj_path
+
+    domain_filename = project['seedGeom']
+    lsto_params = project['lsTOParams']
+    fluid_proj = project['fluidProj']
+    fluid_cases = fluid_proj['fluidCases']
+    voxSize = lsto_params['voxSize']
+    settings = fluid_proj['poseidonSettings']
+
+    print(settings)
+
+    if settings['doublePrecision']:
+        precision = 'f64/f64'
+    else:
+        precision = 'f32/f32'
     lattice = LatticeD3Q27(precision)
 
-    nx = 601
-    ny = 351
-    nz = 251
+    print(os.path.join(proj_path, domain_filename))
+    domain_mesh = trimesh.load_mesh(os.path.join(proj_path, domain_filename), process=False)
+    
+    nx = (int)(domain_mesh.extents[0]/voxSize)
+    ny = (int)(domain_mesh.extents[1]/voxSize)
+    nz = (int)(domain_mesh.extents[2]/voxSize)
 
     Re = 50000.0
-    prescribed_vel = 0.05
+    #prescribed_vel = 
     clength = nx - 1
 
+    # Extract the inlet velocity from the json dict
+    fluid_bcs = fluid_cases[0]['fluidBCs']
+    for bc in fluid_bcs:
+        fluidDef = bc['fluidDef']
+        if fluidDef['bcType'] == "velocity":
+            prescribed_vel = abs(fluidDef['velocity']['x'])
+
+    print(prescribed_vel)
     visc = prescribed_vel * clength / Re
     omega = 1.0 / (3. * visc + 0.5)
 
-    os.system('rm -rf ./*.vtk && rm -rf ./*.png')
-
     kwargs = {
+        'project': project,
         'lattice': lattice,
         'omega': omega,
         'nx': nx,
         'ny': ny,
         'nz': nz,
         'precision': precision,
-        'io_rate': 100,
-        'print_info_rate': 100,
+        'prescribed_vel': prescribed_vel,
+        'io_rate': settings['solutionPrintFreq'],
+        'print_info_rate': settings['solutionPrintFreq'],
         'return_fpost': True  # Need to retain fpost-collision for computation of lift and drag
     }
     sim = Car(**kwargs)
-    sim.run(200000)
+    sim.run(settings['maxFwdIterations'])
+
+def main(argv):
+   inputfile = ''
+   usage = 'windtunnel_json.py -i <inputjson>'
+   print('Welcome to Studio Wind Tunnel Solver')
+   os.system('rm -rf ./*.vtk && rm -rf ./*.png')
+   try:
+      opts, args = getopt.getopt(argv,"hi:o:",["ifile="])
+   except getopt.GetoptError:
+      print(usage)
+      sys.exit(2)
+   for opt, arg in opts:
+      if opt == '-h':
+         print(usage)
+         sys.exit()
+      elif opt in ("-i", "--ifile"):
+         inputfile = arg
+         parseJSON(inputfile)
+
+#%% Main run
+if __name__ == "__main__":
+   main(sys.argv[1:])
