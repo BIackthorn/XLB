@@ -48,7 +48,7 @@
                             "bcType": "velocity",
                             "portID": 0,
                             "velocity": {
-                                "x": -10.0,
+                                "x": -0.05,
                                 "y": 0.0,
                                 "z": 0.0
                             }
@@ -118,7 +118,7 @@
             "maxFwdIterations": 1500,
             "sdfTol": 0.0,
             "smagorinskyConstant": 0.01,
-            "solutionPrintFreq": 0,
+            "solutionPrintFreq": 50,
             "surfaceMeshName": "Body.stl",
             "thermal": false,
             "turbulentFlow": true,
@@ -192,7 +192,7 @@
                 "objectiveType": "pressureDrop"
             }
         ],
-        "outputName": "project",
+        "outputName": "windtunnelOutput",
         "outputParams": {
             "outputSlices": [
                 {
@@ -438,7 +438,7 @@
         "stopOnConvergence": false,
         "symmetryPlanes": [],
         "totalIters": 0,
-        "voxSize": 0.08
+        "voxSize": 0.05
     },
     "meshTransforms": {
         "keepIns": [

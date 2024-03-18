@@ -44,10 +44,6 @@ EXPOSE 22
 RUN apt-get update && \
     apt-get install -y gnupg2 build-essential apt-utils python3 git python3-pip libxrender1 gdb wget libssl-dev software-properties-common python3-dev vim libgl1
 
-
-RUN sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
-CMD /bin/bash -c 'cat /message.txt;cp /etc/group2 /etc/group; cp /etc/sudoers2 /etc/sudoers; service ssh start ; echo "${TARGET_DOCKER_USER}	ALL=(ALL:ALL) ALL" >> /etc/sudoers; su - ${TARGET_DOCKER_USER}; /bin/bash'
-
 RUN python3 -m pip install --upgrade pip
 RUN python3 -m pip install pyevtk numpy pillow scipy jupyter jupyter-server matplotlib pandas scikit-fmm
 RUN python3 -m pip install --upgrade "jax[cuda12_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
@@ -58,3 +54,7 @@ ENV XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enable_a
 ENV CUDA_DEVICE_MAX_CONNECTIONS=1
 ENV NCCL_NVLS_ENABLE=0
 ENV CUDA_MODULE_LOADING=EAGER
+
+RUN sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+CMD /bin/bash -c 'cat /message.txt;cp /etc/group2 /etc/group; cp /etc/sudoers2 /etc/sudoers; service ssh start ; echo "${TARGET_DOCKER_USER}	ALL=(ALL:ALL) ALL" >> /etc/sudoers; su - ${TARGET_DOCKER_USER}; /bin/bash'
+

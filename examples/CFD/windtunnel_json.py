@@ -20,6 +20,7 @@ import numpy as np
 import jax.numpy as jnp
 from jax import config
 import json, getopt, sys
+from scipy.interpolate import RegularGridInterpolator
 
 from src.utils import *
 from src.models import BGKSim, KBCSim
@@ -37,6 +38,7 @@ class Car(KBCSim):
     def __init__(self, **kwargs):
         self.project = kwargs['project']
         self.prescribed_velocity = kwargs['prescribed_vel']
+        self.origin = kwargs['origin']
         super().__init__(**kwargs)
 
     def voxelize_stl(self, stl_filename, length_lbm_unit):
@@ -51,35 +53,61 @@ class Car(KBCSim):
         print('Voxelizing meshes...')
         time_start = time()
         proj_path = self.project['projPath']
+        lsto_params = self.project['lsTOParams']
+        voxSize = lsto_params['voxSize']
+
         first = True
         ko_indices = []
         for ko in self.project['keepOuts']:
             ko_filename = os.path.join(proj_path, ko)
+            #car_length_lbm_unit = self.nx / 4
+            #car_voxelized, pitch = voxelize_stl(ko_filename, car_length_lbm_unit)
+            komesh = trimesh.load_mesh(ko_filename, process=False)
+            ko_origin = komesh.bounds[0]
+
+            # print(komesh.bounds[0])
+            # #verts = komesh.vertices
+            # print(komesh.vertices.shape)
+            # print(self.origin)
+            # newverts = np.append(komesh.vertices, self.origin.reshape(1,3), axis=0)
+            # print(newverts.shape)
+            # komesh.vertices = newverts
+            # #komesh.vertices.append(self.origin)
+            # #komesh.vertices = np.concatenate(komesh.vertices,self.origin)
+            # mask = np.ones((1, komesh.vertices.shape[0]), dtype=bool)
+            # komesh.update_vertices(mask)
+            # ko_origin = komesh.bounds[0]
+            # print(ko_origin)
+            shift = np.asarray((ko_origin - self.origin)/voxSize).astype(int)
+            #shift = np.asarray(-self.origin)
+            #komesh.apply_transform(trimesh.transformations.translation_matrix(shift))            
+            komesh_voxelized = komesh.voxelized(pitch=voxSize)
+            #komesh_voxelized = trimesh.voxel.creation.local_voxelized(mesh=komesh, point=self.origin, pitch=voxSize, )
+            ko_indices.append(np.argwhere(komesh_voxelized.matrix)+shift)
+            #ko_indices.append(np.argwhere(komesh_voxelized.matrix))
             if (first):
-                car_length_lbm_unit = self.nx / 4
-                car_voxelized, pitch = voxelize_stl(ko_filename, car_length_lbm_unit)
-                car_matrix = car_voxelized.matrix
-                ko_indices.append(car_matrix)
+                car_matrix = komesh_voxelized.matrix
                 first = False
         
-        print('Voxelization time for pitch={}: {} seconds'.format(pitch, time() - time_start))
+        print('Voxelization time for pitch={}: {} seconds'.format(voxSize, time() - time_start))
         print("Car matrix shape: ", car_matrix.shape)
 
         self.car_area = np.prod(car_matrix.shape[1:])
-        tx, ty, tz = np.array([self.nx, self.ny, self.nz]) - car_matrix.shape
-        shift = [tx//4, ty//2, 0]
-        car_indices = np.argwhere(car_matrix) + shift
-        self.BCs.append(BounceBackHalfway(tuple(car_indices.T), self.gridInfo, self.precisionPolicy))
+        # tx, ty, tz = np.array([self.nx, self.ny, self.nz]) - car_matrix.shape
+        # shift = [tx//4, ty//2, 0]
+        # car_indices = np.argwhere(car_matrix) + shift
+        # self.BCs.append(BounceBackHalfway(tuple(car_indices.T), self.gridInfo, self.precisionPolicy))
         
-        #for k_inds in ko_indices:
-        #    self.BCs.append(BounceBackHalfway(tuple(k_inds.T), self.gridInfo, self.precisionPolicy))
+        for k_inds in ko_indices:
+           self.BCs.append(BounceBackHalfway(tuple(k_inds.T), self.gridInfo, self.precisionPolicy))
 
         wall = np.concatenate((self.boundingBoxIndices['bottom'], self.boundingBoxIndices['top'],
                                self.boundingBoxIndices['front'], self.boundingBoxIndices['back']))
         self.BCs.append(BounceBack(tuple(wall.T), self.gridInfo, self.precisionPolicy))
 
-        doNothing = self.boundingBoxIndices['right']
-        self.BCs.append(DoNothing(tuple(doNothing.T), self.gridInfo, self.precisionPolicy))
+        outlet = self.boundingBoxIndices['left']
+        self.BCs.append(DoNothing(tuple(outlet.T), self.gridInfo, self.precisionPolicy))
+        # self.BCs.append(ExtrapolationOutflow(tuple(outlet.T), self.gridInfo, self.precisionPolicy))
         self.BCs[-1].implementationStep = 'PostCollision'
         # rho_outlet = np.ones(doNothing.shape[0], dtype=self.precisionPolicy.compute_dtype)
         # self.BCs.append(ZouHe(tuple(doNothing.T),
@@ -87,7 +115,7 @@ class Car(KBCSim):
         #                                          self.precisionPolicy,
         #                                          'pressure', rho_outlet))
 
-        inlet = self.boundingBoxIndices['left']
+        inlet = self.boundingBoxIndices['right']
         rho_inlet = np.ones((inlet.shape[0], 1), dtype=self.precisionPolicy.compute_dtype)
         vel_inlet = np.zeros(inlet.shape, dtype=self.precisionPolicy.compute_dtype)
 
@@ -117,10 +145,29 @@ class Car(KBCSim):
         u_old = np.linalg.norm(u_prev, axis=2)
         u_new = np.linalg.norm(u, axis=2)
 
+        # Slices
+        lsto_params = self.project['lsTOParams']
+        voxSize = lsto_params['voxSize']
+        output_params = lsto_params['outputParams']
+        output_slices = output_params['outputSlices']
+        x = np.linspace(self.origin[0], self.origin[0] + (self.nx+1)*voxSize, self.nx)
+        y = np.linspace(self.origin[1], self.origin[1] + (self.ny+1)*voxSize, self.ny)
+        z = np.linspace(self.origin[2], self.origin[2] + (self.nz+1)*voxSize, self.nz)
+        
+        # for sliceSet in output_slices:
+        #     if (sliceSet['field'] == 'velocityMag'):
+        #         sliceField = u
+        #     height_vec = [sliceSet['heightVec']['x'], sliceSet['heightVec']['y'], sliceSet['heightVec']['z']]
+        #     width_vec = [sliceSet['widthVec']['x'], sliceSet['widthVec']['y'], sliceSet['widthVec']['z']]
+        #     height = sliceSet['height']
+        #     width = sliceSet['width']
+        #     for orig in sliceSet['origin']:
+        #         img_pts = np.mgrid(orig[0]:width_vec[0]:width_vec[0]*width, )
+
         err = np.sum(np.abs(u_old - u_new))
         print('error= {:07.6f}, CL = {:07.6f}, CD = {:07.6f}'.format(err, cl, cd))
         fields = {"rho": rho[..., 0], "u_x": u[..., 0], "u_y": u[..., 1], "u_z": u[..., 2]}
-        save_fields_vtk(timestep, fields)
+        save_fields_vtk(timestep, fields, self.project['lsTOParams']['outputName'])
 
 def parseJSON(inputfile):
     f = open(inputfile)
@@ -135,6 +182,10 @@ def parseJSON(inputfile):
     voxSize = lsto_params['voxSize']
     settings = fluid_proj['poseidonSettings']
 
+    outputDir = lsto_params['outputName']
+    if not os.path.exists(outputDir):
+        os.makedirs(outputDir)
+    
     print(settings)
 
     if settings['doublePrecision']:
@@ -145,6 +196,7 @@ def parseJSON(inputfile):
 
     print(os.path.join(proj_path, domain_filename))
     domain_mesh = trimesh.load_mesh(os.path.join(proj_path, domain_filename), process=False)
+    domain_origin = domain_mesh.bounds[0]
     
     nx = (int)(domain_mesh.extents[0]/voxSize)
     ny = (int)(domain_mesh.extents[1]/voxSize)
@@ -159,10 +211,10 @@ def parseJSON(inputfile):
     for bc in fluid_bcs:
         fluidDef = bc['fluidDef']
         if fluidDef['bcType'] == "velocity":
-            prescribed_vel = abs(fluidDef['velocity']['x'])
+            prescribed_vel = fluidDef['velocity']['x']
 
     print(prescribed_vel)
-    visc = prescribed_vel * clength / Re
+    visc = abs(prescribed_vel) * clength / Re
     omega = 1.0 / (3. * visc + 0.5)
 
     kwargs = {
@@ -172,6 +224,7 @@ def parseJSON(inputfile):
         'nx': nx,
         'ny': ny,
         'nz': nz,
+        'origin': domain_origin,
         'precision': precision,
         'prescribed_vel': prescribed_vel,
         'io_rate': settings['solutionPrintFreq'],
