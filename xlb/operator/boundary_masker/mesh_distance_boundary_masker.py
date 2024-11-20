@@ -87,41 +87,33 @@ class MeshDistanceBoundaryMasker(Operator):
             index[2] = k - start_index[2]
 
             # position of the point
-            pos_solid_cell = index_to_position(index, origin, spacing)
+            pos_bc_cell = index_to_position(index, origin, spacing)
 
-            # Compute the maximum length
-            max_length = wp.sqrt(
-                (spacing[0] * wp.float32(missing_mask.shape[1])) ** 2.0
-                + (spacing[1] * wp.float32(missing_mask.shape[2])) ** 2.0
-                + (spacing[2] * wp.float32(missing_mask.shape[3])) ** 2.0
-            )
+            # Find the fractional distance to the mesh in each direction
+            for l in range(1, _q):
+                dir = wp.vec3f(float(_c[0, l]),float(_c[1, l]), float(_c[2, l]))
+                len = wp.length(dir)
+                # Max length depends on ray direction  (diagonals are longer)
+                max_length = wp.sqrt(
+                    (spacing[0] * wp.float32(dir[0])) ** 2.0
+                    + (spacing[1] * wp.float32(dir[1])) ** 2.0
+                    + (spacing[2] * wp.float32(dir[2])) ** 2.0
+                )
+                query = wp.mesh_query_ray(mesh_id, pos_bc_cell, dir / len, max_length)
+                # if query.result and query.sign > 0:
+                if query.result:
+                    # Set the boundary id and missing_mask
+                    bc_mask[0, index[0], index[1], index[2]] = wp.uint8(id_number)
+                    missing_mask[_opp_indices[l], index[0], index[1], index[2]] = True
 
-            # evaluate if point is inside mesh
-            query = wp.mesh_query_point_sign_winding_number(mesh_id, pos_solid_cell, max_length)
-            if query.result and query.sign <= 0:  # TODO: fix this
-                # Set bc_mask of solid to a large number to enable skipping LBM operations
-                bc_mask[0, index[0], index[1], index[2]] = wp.uint8(255)
+                    # get position of the mesh triangle that intersects with the ray
+                    pos_mesh = wp.mesh_eval_position(mesh_id, query.face, query.u, query.v)
+                    dist = wp.length(pos_mesh - pos_bc_cell)
+                    # wp.printf('Dist: %f, Max_length: %f\n', dist, max_length)
+                    f_field[l, index[0], index[1], index[2]] = self.store_dtype(dist/max_length)
+                    if (dist > max_length or dist <= 0 or f_field[l, index[0], index[1], index[2]] >= 1.0):
+                        wp.printf('Dist: %f, Max_length: %f\n', dist, max_length)
 
-                # Find neighboring fluid cells along each lattice direction and the their fractional distance to the mesh
-                for l in range(1, _q):
-                    # Get the index of the streaming direction
-                    push_index = wp.vec3i()
-                    for d in range(self.velocity_set.d):
-                        push_index[d] = index[d] + _c[d, l]
-                    shape = wp.vec3i(missing_mask.shape[1], missing_mask.shape[2], missing_mask.shape[3])
-                    if check_index_bounds(push_index, shape):
-                        # find neighbouring fluid cell
-                        pos_fluid_cell = index_to_position(push_index, origin, spacing)
-                        query = wp.mesh_query_point_sign_winding_number(mesh_id, pos_fluid_cell, max_length)
-                        if query.result and query.sign > 0:
-                            # Set the boundary id and missing_mask
-                            bc_mask[0, push_index[0], push_index[1], push_index[2]] = wp.uint8(id_number)
-                            missing_mask[l, push_index[0], push_index[1], push_index[2]] = True
-
-                            # get position of the mesh triangle that intersects with the solid cell
-                            pos_mesh = wp.mesh_eval_position(mesh_id, query.face, query.u, query.v)
-                            weight = wp.length(pos_fluid_cell - pos_mesh) / wp.length(pos_fluid_cell - pos_solid_cell)
-                            f_field[_opp_indices[l], push_index[0], push_index[1], push_index[2]] = self.store_dtype(weight)
 
         return None, kernel
 
@@ -164,6 +156,12 @@ class MeshDistanceBoundaryMasker(Operator):
         spacing = wp.vec3(spacing[0], spacing[1], spacing[2])
         start_index = wp.vec3i(start_index[0], start_index[1], start_index[2])
         mesh_id = wp.uint64(mesh.id)
+
+        print(["Setting up mesh distance boundary masker on mesh with ", len(mesh.points), " vertices, ", len(mesh.indices), " faces"])
+        print(mesh.points)
+        print(mesh.indices)
+        print(mesh_vertices.shape)
+        print(mesh_indices.shape)
 
         # Launch the warp kernel
         wp.launch(
