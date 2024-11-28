@@ -9,6 +9,7 @@ from xlb.precision_policy import PrecisionPolicy
 from xlb.compute_backend import ComputeBackend
 from xlb.operator.operator import Operator
 
+from xlb.utils import save_fields_vtk, save_image
 
 class MeshDistanceBoundaryMasker(Operator):
     """
@@ -111,9 +112,78 @@ class MeshDistanceBoundaryMasker(Operator):
                     dist = wp.length(pos_mesh - pos_bc_cell)
                     # wp.printf('Dist: %f, Max_length: %f\n', dist, max_length)
                     f_field[l, index[0], index[1], index[2]] = self.store_dtype(dist/max_length)
-                    if (dist > max_length or dist <= 0 or f_field[l, index[0], index[1], index[2]] >= 1.0):
+
+                    if (dist > max_length or dist <= 0 or f_field[l, index[0], index[1], index[2]] > 1.0):
                         wp.printf('Dist: %f, Max_length: %f\n', dist, max_length)
 
+        # Construct the warp kernel
+        # Alternative method:
+        # Do voxelization mesh query (warp.mesh_query_aabb) to find solid voxels
+        # for any non-solid voxel do ray-casting with max_length = 1.5*dir, use dist - 0.5 as weight
+        #  - this gives an approximate 1 voxel thick surface around mesh
+        @wp.kernel
+        def kernel(
+            mesh_id: wp.uint64,
+            origin: wp.vec3,
+            spacing: wp.vec3,
+            id_number: wp.int32,
+            bc_mask: wp.array4d(dtype=wp.uint8),
+            missing_mask: wp.array4d(dtype=wp.bool),
+            f_field: wp.array4d(dtype=Any),
+            start_index: wp.vec3i,
+        ):
+            # get index
+            i, j, k = wp.tid()
+
+            # Get local indices
+            index = wp.vec3i()
+            index[0] = i - start_index[0]
+            index[1] = j - start_index[1]
+            index[2] = k - start_index[2]
+
+            # position of the point
+            pos_bc_cell = index_to_position(index, origin, spacing)
+            
+            vox_query = wp.mesh_query_aabb(mesh_id, pos_bc_cell - 0.5*spacing, pos_bc_cell + 0.5*spacing)
+            face = wp.int32(0)
+            if wp.mesh_query_aabb_next(vox_query, face):
+                # Make solid voxel
+                bc_mask[0, index[0], index[1], index[2]] = wp.uint8(255)
+            else:
+                # Find the fractional distance to the mesh in each direction
+                for l in range(1, _q):
+                    dir = wp.vec3f(float(_c[0, l]),float(_c[1, l]), float(_c[2, l]))
+                    len = wp.length(dir)
+                    # Max length depends on ray direction  (diagonals are longer)
+                    max_length = wp.sqrt(
+                        (spacing[0] * wp.float32(dir[0])) ** 2.0
+                        + (spacing[1] * wp.float32(dir[1])) ** 2.0
+                        + (spacing[2] * wp.float32(dir[2])) ** 2.0
+                    )
+                    # Check to see if this neighbor is solid
+                    vox_query_dir = wp.mesh_query_aabb(mesh_id, pos_bc_cell + dir*max_length - 0.5*spacing, pos_bc_cell + dir*max_length + 0.5*spacing)
+                    face = wp.int32(0)
+                    if wp.mesh_query_aabb_next(vox_query_dir, face):
+                        # We know we have a solid neighbor
+                        # Set the boundary id and missing_mask
+                        bc_mask[0, index[0], index[1], index[2]] = wp.uint8(id_number)
+                        missing_mask[_opp_indices[l], index[0], index[1], index[2]] = True
+
+                        # We increase max_length to find intersections in neighboring cells
+                        query = wp.mesh_query_ray(mesh_id, pos_bc_cell, dir / len, 1.5*max_length)
+                        # if query.result and query.sign > 0:
+                        if query.result:
+                            # get position of the mesh triangle that intersects with the ray
+                            pos_mesh = wp.mesh_eval_position(mesh_id, query.face, query.u, query.v)
+                            # We reduce the distance to give some wall thickness
+                            dist = wp.length(pos_mesh - pos_bc_cell) - 0.5*max_length
+                            # wp.printf('Dist: %f, Max_length: %f\n', dist, max_length)
+                            f_field[l, index[0], index[1], index[2]] = self.store_dtype(dist/max_length)
+                            if (dist > max_length or dist <= 0 or f_field[l, index[0], index[1], index[2]] > 1.0):
+                                wp.printf('Dist: %f, Max_length: %f\n', dist, max_length)
+                        else:
+                            # We didn't have an intersection in the given direction but we know we should so we default to 1.0
+                            f_field[l, index[0], index[1], index[2]] = self.store_dtype(1.0)
 
         return None, kernel
 
@@ -157,11 +227,7 @@ class MeshDistanceBoundaryMasker(Operator):
         start_index = wp.vec3i(start_index[0], start_index[1], start_index[2])
         mesh_id = wp.uint64(mesh.id)
 
-        print(["Setting up mesh distance boundary masker on mesh with ", len(mesh.points), " vertices, ", len(mesh.indices), " faces"])
-        print(mesh.points)
-        print(mesh.indices)
-        print(mesh_vertices.shape)
-        print(mesh_indices.shape)
+        # dist_field = wp.zeros_like(f_field)
 
         # Launch the warp kernel
         wp.launch(
@@ -178,5 +244,13 @@ class MeshDistanceBoundaryMasker(Operator):
             ],
             dim=missing_mask.shape[1:],
         )
+        # Debugging distances
+        # wp.synchronize()
+        # fields = {}
+        # df = dist_field.numpy()
+        # for i in range(self.velocity_set.q):
+        #     fields[f"weights_{i}"] = df[i, ...] 
+        # save_fields_vtk(fields,0,".","dists")
+        # save_image(fields[f"weights_{i}"][:, :, df.shape[2]//2],0, prefix="dist")
 
         return bc_mask, missing_mask, f_field

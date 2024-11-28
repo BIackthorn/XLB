@@ -200,12 +200,15 @@ class GradsApproximationBC(BoundaryCondition):
                 # If the mask is missing then take the opposite index
                 if missing_mask[l] == wp.uint8(1):
                     # The implicit distance to the boundary or "weights" have been stored in known directions of f_1
-                    # weight = f_1[_opp_indices[l], index[0], index[1], index[2]]
-                    weight = self.compute_dtype(0.5)
+                    weight = f_1[_opp_indices[l], index[0], index[1], index[2]]
+                    # weight = self.compute_dtype(0.5)
+                    if (weight < 0 or weight > 1.0):
+                        wp.printf("Got bad weight %f at %d,%d,%d\n", weight, index[0], index[1], index[2])
+
 
                     # Use differentiable interpolated BB to find f_missing:
                     f_post[l] = ((one - weight) * f_post[_opp_indices[l]] + weight * (f_pre[l] + f_pre[_opp_indices[l]])) / (one + weight)
-
+                    
                     # # Add contribution due to moving_wall to f_missing as is usual in regular Bouzidi BC
                     # cu = self.compute_dtype(0.0)
                     # for d in range(_d):
