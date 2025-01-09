@@ -58,7 +58,7 @@ class MeshBoundaryMasker(Operator):
             ijk = wp.vec3(wp.float32(index[0]), wp.float32(index[1]), wp.float32(index[2]))
             pos = ijk + wp.vec3(0.5, 0.5, 0.5)  # cell center
             return pos
-        
+
         # Function to precompute useful values per triangle, assuming spacing is (1,1,1)
         @wp.func
         def pre_compute( v: wp.mat33f, # triangle vertices
@@ -72,22 +72,23 @@ class MeshBoundaryMasker(Operator):
             ne0 = wp.mat33f(0.0)
             ne1 = wp.mat33f(0.0)
             de = wp.mat33f(0.0)
-            
+
             for ax0 in range(0,3):
                 ax2 = ( ax0 + 2 ) % 3
 
                 sgn = 1.0
                 if ( normal[ax2] < 0.0 ):
                     sgn = -1.0
-                
+
                 for i in range(0,3):
                     ne0[i][ax0] = -1.0 * sgn * edges[i][ax0]
                     ne1[i][ax0] = sgn * edges[i][ax0]
 
-                    de[i][ax0] = -1.0 * ( ne0[i][ax0] * v[i][ax0] + ne1[i][ax0] * v[i][ax0] ) + wp.max( 0.0, ne0[i][ax0] ) + wp.max( 0.0, ne1[i][ax0] )
-            
+                    de[i][ax0] = -1. * ( ne0[i][ax0] * v[i][ax0] + ne1[i][ax0] * v[i][ax0] ) \
+                        + wp.max(0., ne0[i][ax0] ) + wp.max(0., ne1[i][ax0])
+
             return d1, d2, ne0, ne1, de
-        
+
         # Check whether this triangle intersects the unit cube at position low
         @wp.func
         def triangle_box_intersect( low: wp.vec3f,
@@ -104,27 +105,27 @@ class MeshBoundaryMasker(Operator):
                     ax1 = ( ax0 + 1 ) % 3
                     for i in range(0,3):
                         intersect = intersect and ( ne0[i][ax0] * low[ax0] + ne1[i][ax0] * low[ax1] + de[i][ax0] >= 0.0 )
-                    
+
                 return intersect
             else:
                 return False
-        
+
         @wp.func
         def mesh_voxel_intersect( mesh_id: wp.uint64, low: wp.vec3 ):
-            
+
             query = wp.mesh_query_aabb(mesh_id, low, low + wp.vec3f(1.,1.,1.))
-            
+
             for f in query:
                 v0 = wp.mesh_eval_position(mesh_id, f, 1.0, 0.0)
                 v1 = wp.mesh_eval_position(mesh_id, f, 0.0, 1.0)
                 v2 = wp.mesh_eval_position(mesh_id, f, 0.0, 0.0)
                 normal = wp.mesh_eval_face_normal(mesh_id, f)
-            
+
                 v = wp.transpose(wp.mat33f(v0,v1,v2))
-                
+
                 # TODO: run this on triangles in advance
                 d1, d2, ne0, ne1, de = pre_compute( v= v, normal= normal )
-                
+
                 if triangle_box_intersect(low=low, normal=normal, d1=d1, d2=d2, ne0=ne0, ne1=ne1, de=de):
                     return True
 
