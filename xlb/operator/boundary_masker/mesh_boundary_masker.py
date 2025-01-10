@@ -57,6 +57,8 @@ class MeshBoundaryMasker(Operator):
             return pos
 
         # Function to precompute useful values per triangle, assuming spacing is (1,1,1)
+        # inputs: verts: triangle vertices, normal: triangle normal
+        # outputs: dist1, dist2, normal_edge0, normal_edge1, dist_edge
         @wp.func
         def pre_compute(
             verts: wp.mat33f,  # triangle vertices
@@ -92,6 +94,9 @@ class MeshBoundaryMasker(Operator):
             return dist1, dist2, normal_edge0, normal_edge1, dist_edge
 
         # Check whether this triangle intersects the unit cube at position low
+        #  inputs: low: position of the cube, normal: triangle normal, dist1, dist2, normal_edge0, normal_edge1, dist_edge: precomputed values
+        #  outputs: True if intersection, False otherwise
+        #  reference: Fast parallel surface and solid voxelization on GPUs, M. Schwarz, H-P. Siedel, https://dl.acm.org/doi/10.1145/1882261.1866201
         @wp.func
         def triangle_box_intersect(
             low: wp.vec3f,
@@ -114,6 +119,9 @@ class MeshBoundaryMasker(Operator):
             else:
                 return False
 
+        # Check whether the unit voxel at position low intersects the warp mesh
+        #  inputs: mesh_id: mesh id, low: position of the voxel
+        #  outputs: True if intersection, False otherwise
         @wp.func
         def mesh_voxel_intersect(mesh_id: wp.uint64, low: wp.vec3):
             query = wp.mesh_query_aabb(mesh_id, low, low + wp.vec3f(1.0, 1.0, 1.0))
@@ -127,9 +135,11 @@ class MeshBoundaryMasker(Operator):
                 v = wp.transpose(wp.mat33f(v0, v1, v2))
 
                 # TODO: run this on triangles in advance
-                d1, d2, ne0, ne1, de = pre_compute(verts=v, normal=normal)
+                dist1, dist2, normal_edge0, normal_edge1, dist_edge = pre_compute(verts=v, normal=normal)
 
-                if triangle_box_intersect(low=low, normal=normal, dist1=d1, dist2=d2, normal_edge0=ne0, normal_edge1=ne1, dist_edge=de):
+                if triangle_box_intersect(
+                    low=low, normal=normal, dist1=dist1, dist2=dist2, normal_edge0=normal_edge0, normal_edge1=normal_edge1, dist_edge=dist_edge
+                ):
                     return True
 
             return False
