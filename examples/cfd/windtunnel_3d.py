@@ -64,7 +64,7 @@ class WindTunnel3D:
         walls = np.unique(np.array(walls), axis=-1).tolist()
 
         # Load the mesh (replace with your own mesh)
-        stl_filename = "../stl-files/DrivAer-Notchback.stl"
+        stl_filename = "stl-files/DrivAer-Notchback.stl"
         mesh = trimesh.load_mesh(stl_filename, process=False)
         mesh_vertices = mesh.vertices
 
@@ -183,6 +183,7 @@ class WindTunnel3D:
 
 
 if __name__ == "__main__":
+    wp.clear_kernel_cache()
     # Grid parameters
     grid_size_x, grid_size_y, grid_size_z = 512, 128, 128
     grid_shape = (grid_size_x, grid_size_y, grid_size_z)
@@ -193,7 +194,7 @@ if __name__ == "__main__":
 
     velocity_set = xlb.velocity_set.D3Q27(precision_policy=precision_policy, backend=backend)
     wind_speed = 0.02
-    num_steps = 100000
+    num_steps = 10000
     print_interval = 1000
 
     # Set up Reynolds number and deduce relaxation time (omega)
