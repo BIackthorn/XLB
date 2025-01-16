@@ -87,7 +87,7 @@ def save_image(fld, timestep=None, prefix=None, **kwargs):
     plt.imsave(fname + ".png", fld.T, cmap=cm.nipy_spectral, origin="lower", **kwargs)
 
 
-def save_fields_vtk(fields, timestep, output_dir=".", prefix="fields"):
+def save_fields_vtk(fields, timestep, output_dir=".", prefix="fields", spacing=(1.0, 1.0, 1.0)):
     """
     Save VTK fields to the specified directory.
 
@@ -130,7 +130,7 @@ def save_fields_vtk(fields, timestep, output_dir=".", prefix="fields"):
     if value.ndim == 2:
         dimensions = dimensions + (1,)
 
-    grid = pv.ImageData(dimensions=dimensions)
+    grid = pv.ImageData(dimensions=dimensions,spacing=spacing)
 
     # Add the fields to the grid
     for key, value in fields.items():
