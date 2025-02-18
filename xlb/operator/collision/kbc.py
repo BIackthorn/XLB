@@ -256,9 +256,25 @@ class KBC(Collision):
             feq: Any,
         ):
             e = wp.cw_div(wp.cw_mul(x, y), feq)
+            # e_sum = self.compute_dtype(0.0)
+            # for i in range(self.velocity_set.q):
+            #     e_sum += e[i]
+            # Kahan-Babuska summation: https://en.wikipedia.org/wiki/Kahan_summation_algorithm
             e_sum = self.compute_dtype(0.0)
+            #  A running compensation for lost low-order bits.
+            c = self.compute_dtype(0.0)
+            a = self.compute_dtype(0.0)
             for i in range(self.velocity_set.q):
-                e_sum += e[i]
+                # c is zero the first time around.
+                a = e[i] - c
+                # Alas, sum is big, a small, so low-order digits of a are lost.
+                t = e_sum + a
+                # (t - e_sum) cancels the high-order part of a;
+                # subtracting a recovers negative (low part of a)
+                c = (t - e_sum) - a
+                # Algebraically, c should always be zero. Beware
+                # overly-aggressive optimizing compilers!
+                e_sum = t
             return e_sum
 
         # Construct the functional
@@ -281,9 +297,12 @@ class KBC(Collision):
             # Perform collision
             delta_h = fneq - delta_s
             two = self.compute_dtype(2.0)
-            gamma = _inv_beta - (two - _inv_beta) * entropic_scalar_product(delta_s, delta_h, feq) / (
-                _epsilon + entropic_scalar_product(delta_h, delta_h, feq)
-            )
+            div = wp.float64(entropic_scalar_product(delta_s, delta_h, feq)) / wp.float64(
+                _epsilon + entropic_scalar_product(delta_h, delta_h, feq))
+            gamma = _inv_beta - (two - _inv_beta) * self.compute_dtype(div)
+            # gamma = _inv_beta - (two - _inv_beta) * entropic_scalar_product(delta_s, delta_h, feq) / (
+            #     _epsilon + entropic_scalar_product(delta_h, delta_h, feq)
+            # )
             fout = f - _beta * (two * delta_s + gamma * delta_h)
 
             return fout
