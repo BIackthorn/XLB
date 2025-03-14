@@ -286,7 +286,7 @@ class MeshBoundaryMasker(Operator):
             pos_bc_cell = index_to_position(index)
             half = wp.vec3(0.5, 0.5, 0.5)
 
-            if solid_mask[i, j, k] == wp.uint8(255):
+            if solid_mask[i, j, k] == wp.uint8(255) or bc_mask[0, index[0], index[1], index[2]] == wp.uint8(255):
                 # Make solid voxel
                 bc_mask[0, index[0], index[1], index[2]] = wp.uint8(255)
             else:
