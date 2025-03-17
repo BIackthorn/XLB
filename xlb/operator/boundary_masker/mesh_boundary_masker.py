@@ -340,7 +340,7 @@ class MeshBoundaryMasker(Operator):
             pos_bc_cell = index_to_position(index)
             half = wp.vec3(0.5, 0.5, 0.5)
 
-            if mesh_voxel_intersect(mesh_id=mesh_id, low=pos_bc_cell - half):
+            if bc_mask[0, index[0], index[1], index[2]] == wp.uint8(255) or mesh_voxel_intersect(mesh_id=mesh_id, low=pos_bc_cell - half):
                 # Make solid voxel
                 bc_mask[0, index[0], index[1], index[2]] = wp.uint8(255)
             else:
@@ -375,7 +375,7 @@ class MeshBoundaryMasker(Operator):
             pos_bc_cell = index_to_position(index)
             half = wp.vec3(0.5, 0.5, 0.5)
 
-            if mesh_voxel_intersect(mesh_id=mesh_id, low=pos_bc_cell - half):
+            if bc_mask[0, index[0], index[1], index[2]] == wp.uint8(255) or mesh_voxel_intersect(mesh_id=mesh_id, low=pos_bc_cell - half):
                 # Make solid voxel
                 bc_mask[0, index[0], index[1], index[2]] = wp.uint8(255)
             else:
